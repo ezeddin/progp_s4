@@ -1,6 +1,7 @@
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
+import qualified Data.Char as C
 
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
@@ -23,11 +24,11 @@ parseString = do
                 return $ String x
 
 parseAtom :: Parser LispVal
-parseAtom = do 
+parseAtom = do
               first <- letter <|> symbol
               rest <- many (letter <|> digit <|> symbol)
               let atom = first:rest
-              return $ case atom of 
+              return $ case atom of
                          "#t" -> Bool True
                          "#f" -> Bool False
                          _    -> Atom atom
@@ -37,6 +38,11 @@ parseNumber = liftM (Number . read) $ many1 digit
 
 parseList :: Parser LispVal
 parseList = liftM List $ sepBy parseExpr spaces
+
+parseCommand :: Parser LispVal
+parseCommand = do
+                cmd <- (string "forw") <|> (string "back")
+                return $ Atom cmd
 
 parseDottedList :: Parser LispVal
 parseDottedList = do
@@ -50,12 +56,13 @@ parseQuoted = do
     x <- parseExpr
     return $ List [Atom "quote", x]
 readExpr :: String -> String
-readExpr input = case parse parseExpr "lisp" input of
+readExpr input = case parse parseExpr "lisp" (map C.toLower input) of
     Left err -> "No match: " ++ show err
     Right _ -> "Found value"
 
 parseExpr :: Parser LispVal
-parseExpr = parseAtom
+parseExpr = parseCommand
+         -- <|> parseAtom
          <|> parseString
          <|> parseNumber
          <|> parseQuoted
@@ -64,6 +71,6 @@ parseExpr = parseAtom
                 char ')'
                 return x
 main :: IO ()
-main = do 
+main = do
          args <- getArgs
          putStrLn (readExpr (args !! 0))
