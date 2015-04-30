@@ -6,6 +6,11 @@ import qualified Data.Char as C
 symbol :: Parser Char
 symbol = oneOf "!#$%&|*+-/:<=>?@^_~"
 
+instance Show LispVal where show = showCommand
+showCommand :: LispVal -> String
+showCommand (Command str nmb) = str ++ (show nmb)
+showCommand (Number int) = show int
+showCommand _ = "hej"
 data LispVal = Atom String
              | List [LispVal]
              | DottedList [LispVal] LispVal
@@ -15,18 +20,20 @@ data LispVal = Atom String
              | Command String LispVal
 
 
+
+
 main :: IO ()
 main = do
          args <- getContents
          putStrLn (readExpr (args))
 
 readExpr :: String -> String
-readExpr input = case parse parseCommand "lisp" (map C.toLower input) of
+readExpr input = case parse parseExpr "lisp" (map C.toLower input) of
     Left err -> "No match: " ++ show err
-    Right _ -> "Found value"
+    Right val -> "Found value " ++ (show val)
 
 parseExpr :: Parser LispVal
-parseExpr = parseCommand <|> parseExpr
+parseExpr = parseCommand
          -- <|> parseAtom
          -- <|> parseString
          -- <|> parseNumber
