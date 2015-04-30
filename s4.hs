@@ -21,7 +21,7 @@ main = do
          putStrLn (readExpr (args))
 
 readExpr :: String -> String
-readExpr input = case parse parseExpr "lisp" (map C.toLower input) of
+readExpr input = case parse parseCommand "lisp" (map C.toLower input) of
     Left err -> "No match: " ++ show err
     Right _ -> "Found value"
 
@@ -81,5 +81,3 @@ parseQuoted = do
     char '\''
     x <- parseExpr
     return $ List [Atom "quote", x]
-
-
