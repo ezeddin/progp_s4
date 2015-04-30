@@ -10,10 +10,13 @@ instance Show LispVal where show = showCommand
 showCommand :: LispVal -> String
 showCommand (Command str nmb) = str ++ (show nmb)
 showCommand (Number int) = show int
+showCommand EOF = "EOF"
 showCommand _ = "hej"
 data LispVal = Atom String
              | List [LispVal]
              | DottedList [LispVal] LispVal
+             | EOF
+             | NewLine Char
              | Number Integer
              | String String
              | Bool Bool
@@ -33,7 +36,9 @@ readExpr input = case parse parseExpr "lisp" (map C.toLower input) of
     Right val -> "Found value " ++ (show val)
 
 parseExpr :: Parser LispVal
-parseExpr = parseCommand
+parseExpr = (parseCommand
+            <|> parseNewLine) >>
+            (parseEOF <|> parseExpr)
          -- <|> parseAtom
          -- <|> parseString
          -- <|> parseNumber
@@ -46,6 +51,14 @@ parseExpr = parseCommand
 spaces :: Parser ()
 spaces = skipMany1 space
 
+parseEOF :: Parser LispVal
+parseEOF = do
+            eof
+            return EOF
+parseNewLine :: Parser LispVal
+parseNewLine =  do
+                chr <- (char '\n')
+                return $ NewLine chr
 parseNumber :: Parser LispVal
 parseNumber = liftM (Number . read) $ many1 digit
 
