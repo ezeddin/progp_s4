@@ -26,7 +26,7 @@ readExpr input = case parse parseCommand "lisp" (map C.toLower input) of
     Right _ -> "Found value"
 
 parseExpr :: Parser LispVal
-parseExpr = parseCommand
+parseExpr = parseCommand <|> parseExpr
          -- <|> parseAtom
          -- <|> parseString
          -- <|> parseNumber
