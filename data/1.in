@@ -1,7 +1,5 @@
- back        12222222. 
-
- ForW 1. 
-
-
-
-
+forw 1.
+right 90.
+COLOR #AA0000.
+back 3.
+COLOR #FFFFFF.
