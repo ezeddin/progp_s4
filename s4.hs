@@ -24,7 +24,8 @@ data Expr =
 main :: IO ()
 main = do
          args <- getContents
-         print (evalAll (readExpr $ args) (PointData (0,0) 0 "#0000FF"))
+         let lines = evalAll (readExpr $ args) (TurtleState (PointData (0,0) 0 "#0000FF") [])
+         print lines
 
 readExpr :: String -> [Expr]
 readExpr input = case parse parseExpr "Leonardo" (map C.toLower input) of
@@ -80,28 +81,64 @@ parseColorCommand = do
 
 instance Show PointData where show = showPoint
 showPoint :: PointData -> String
-showPoint (PointData point _ hex) = hex ++ " " ++ "(" ++ (show $ fst point) ++ "," ++ (show $ snd point) ++ ")"
+showPoint (PointData point _ _) = (show $ fst $ point) ++ " " ++ (show $ snd point)
+
+instance Show DrawnLine where show = showLine
+showLine :: DrawnLine -> String
+showLine (DrawnLine startPoint endPoint hexline) = hexline ++ " " ++ (show startPoint) ++ " " ++ (show endPoint) 
+
+instance Show TurtleState where show = showState
+showState :: TurtleState -> String
+showState (TurtleState _ lines) = showLineList (reverse lines)
+
+showLineList :: [DrawnLine] -> String
+showLineList [] = ""
+showLineList (h:t) = (show h) ++ "\n" ++ (showLineList t)
+
+
 
 data PointData = PointData {
     point :: (Float, Float),
     dir :: Float,
     hex :: String
-} 
+}
 
-eval :: Expr -> PointData -> PointData
-eval val@(NumCommand "forw" (Number nmb)) (PointData point angle hex) = 
-    PointData ((fst point) + nmb * degCos angle, (snd point) + nmb * degSin angle ) angle hex
-eval val@(NumCommand "back" (Number nmb)) (PointData point angle hex) = 
-    PointData ((fst point) - nmb * degCos angle, (snd point) - nmb * degSin angle ) angle hex
+data DrawnLine = DrawnLine {
+    startPoint :: PointData,
+    endPoint :: PointData,
+    hexline :: String
+}
 
-eval val@(NumCommand "left" (Number angle)) (PointData point direction hex) = 
-    PointData point (direction + angle) hex
-eval val@(NumCommand "right" (Number angle)) (PointData point direction hex) = 
-    PointData point (direction - angle) hex
-eval val@(StrCommand "color" (String hex)) (PointData point direction _) = (PointData point direction hex)
+-- Contains the current state of the turtle, and all the lines that it has drawn.
+data TurtleState = TurtleState {
+    pointdata :: PointData,
+    lines :: [DrawnLine]
+}
+
+eval :: Expr -> TurtleState -> TurtleState
+eval val@(NumCommand "forw" (Number nmb)) (TurtleState (PointData point angle hex) lines) =
+    let
+        pdata = PointData ((fst point) + nmb * degCos angle, (snd point) + nmb * degSin angle ) angle hex
+        newline = DrawnLine (PointData point angle hex) pdata hex
+    in TurtleState pdata (newline:lines)
+
+eval val@(NumCommand "back" (Number nmb)) (TurtleState (PointData point angle hex) lines ) =
+    let
+        pdata = PointData ((fst point) - nmb * degCos angle, (snd point) - nmb * degSin angle ) angle hex
+        newline = DrawnLine (PointData point angle hex) pdata hex
+    in TurtleState pdata (newline:lines)
+
+eval val@(NumCommand "left" (Number angle)) (TurtleState (PointData point direction hex) lines) = 
+    TurtleState (PointData point (direction + angle) hex) lines
+
+eval val@(NumCommand "right" (Number angle)) (TurtleState (PointData point direction hex) lines) = 
+    TurtleState (PointData point (direction - angle) hex) lines
+    
+eval val@(StrCommand "color" (String hex)) (TurtleState (PointData point direction _) lines) = 
+    TurtleState (PointData point direction hex) lines
 
 
-evalAll :: [Expr] -> PointData -> PointData
+evalAll :: [Expr] -> TurtleState -> TurtleState
 evalAll [] pointData = pointData
 evalAll (h:t) pointData = evalAll t (eval h pointData)
 
