@@ -17,7 +17,7 @@ showCommand (String s) = s
 showCommand (Comment) = "Comment"
 showCommand (Variable s) = "Variabel" ++ show s
 showCommand (VariableAssignment s op) = "VariableAssignment" ++ (show s) ++ " " ++ (show op)
-showCommand (BinOp expr1 expr2 op) = "Bin " ++ "(" ++ (show expr1) ++ " " ++  (show expr2) ++ " " ++ (show op) ++  " )" 
+showCommand (BinOp expr1 expr2 op) = "Bin " ++ "[" ++ (show expr1) ++ ", " ++  (show expr2) ++ ", " ++ (show op) ++  "]" 
 showCommand (Operation opr ) = "OP " ++ (show opr) 
 
 -- Tokens
@@ -39,7 +39,7 @@ data Expr =
 main :: IO ()
 main = do
          args <- getContents
-         let lines = (readExpr $ args) -- (TurtleState (PointData (0,0) 0 "#0000FF") [] True [])
+         let lines = evalAll (readExpr $ args) (TurtleState (PointData (0,0) 0 "#0000FF") [] True [])
          print $ lines
 
 readExpr :: String -> [Expr]
@@ -54,15 +54,18 @@ parseProgram :: Parser [Expr]
 parseProgram = many parseExpr
 
 parseExpr :: Parser Expr
-parseExpr = (parseNumCommand <|> parseColorCommand <|> 
+parseExpr = (try parseNumCommand <|> parseColorCommand <|> 
     try parsePenStateCommand <|> try parseRep <|> 
-    parseRepSingle <|> parseAssignment <|> parseComment)
+    try parseRepSingle <|> parseAssignment <|> parseCommentToken)
 
 spaces1 :: Parser ()
-spaces1 = skipMany1 (space <|> newline)
+spaces1 = do 
+            many (skipMany1 (space <|> newline) <|> parseComment)
+            return ()
 
 spaces0 :: Parser ()
-spaces0 = skipMany (space <|> newline)
+spaces0 = skipMany (space <|> newline) <|> parseComment
+
 
 parseDot :: Parser Char
 parseDot =  char '.'
@@ -78,7 +81,7 @@ parseNegNumber = do
                  return $ BinOp (Number 0) num (Operation '-') 
 
 parseNumber :: Parser Expr
-parseNumber =  parseArithmetic <|> parseInt <|> parseNegNumber <|> parseVariable
+parseNumber =  try parseArithmetic
 
 
 parseHex :: Parser Expr
@@ -120,11 +123,16 @@ parsePenStateCommand = do
                         "up"    -> PenStateCommand cmd (Bool False)
                         "down"  -> PenStateCommand cmd (Bool True)
 
-parseComment :: Parser Expr
+parseComment :: Parser ()
 parseComment = do
-                string "%"
-                many (noneOf "\n")
-                spaces0
+                char '%'
+                manyTill anyChar newline
+                many space
+                return ()
+
+parseCommentToken :: Parser Expr
+parseCommentToken = do
+                parseComment
                 return Comment
 
 parseRep :: Parser Expr
@@ -136,6 +144,7 @@ parseRep = do
                 char '"'
                 spaces0
                 expr <- parseProgram
+                spaces0
                 char '"'
                 spaces0
                 return $ RepCommand nmb expr
@@ -178,13 +187,11 @@ parseArithmetic = try parseAddition <|> try parseSubtraction <|> try parseTerm
 parseTerm :: Parser Expr
 parseTerm       = do
                 op <- try parseDivision <|> try parseMultiplication <|> try parseFactor
-                spaces0
                 return op
 
 parseFactor :: Parser Expr
 parseFactor = do 
                 num <- parseGroup <|> parseInt <|> parseNegNumber <|> parseVariable
-                spaces0
                 return $ BinOp num (Number 0) (Operation '+')
 
 parseGroup :: Parser Expr
@@ -241,7 +248,6 @@ parseDivision = do
 
 -------------------- Evaluator -------------------------
 
-
 instance Show PointData where show = showPoint
 showPoint :: PointData -> String
 showPoint (PointData point _ _) = (showFFloat (Just 4) (fst point) "")++ " " ++ (showFFloat (Just 4) (snd point) "")
@@ -282,7 +288,7 @@ getValue :: [(String, Float)] -> String -> Float
 getValue [] _ = error "De he va int' sah bra"
 getValue ((key, value):rest) maybeKey
     | maybeKey == key   = value 
-    | otherwise         = getValue rest key
+    | otherwise         = getValue rest maybeKey
 
 
 eval :: Expr -> TurtleState -> TurtleState
@@ -294,27 +300,8 @@ eval val@(NumCommand "forw" (Number nmb)) (TurtleState (PointData point angle he
         True      -> TurtleState pdata (newline:lines) True vars
         otherwise -> TurtleState pdata lines False vars
 
-eval val@(NumCommand "forw" (Variable name)) (TurtleState (PointData point angle hex) lines penState vars) =
-    let
-        nmb = getValue vars name
-        pdata = PointData ((fst point) + nmb * degCos angle, (snd point) + nmb * degSin angle ) angle hex
-        newline = DrawnLine (PointData point angle hex) pdata hex
-    in case penState of 
-        True      -> TurtleState pdata (newline:lines) True vars
-        otherwise -> TurtleState pdata lines False vars
-
-
 eval val@(NumCommand "back" (Number nmb)) (TurtleState (PointData point angle hex) lines penState vars) =
     let
-        pdata = PointData ((fst point) - nmb * degCos angle, (snd point) - nmb * degSin angle ) angle hex
-        newline = DrawnLine (PointData point angle hex) pdata hex
-    in case penState of 
-        True      -> TurtleState pdata (newline:lines) True vars
-        otherwise -> TurtleState pdata lines False vars
-
-eval val@(NumCommand "back" (Variable name)) (TurtleState (PointData point angle hex) lines penState vars) =
-    let
-        nmb = getValue vars name
         pdata = PointData ((fst point) - nmb * degCos angle, (snd point) - nmb * degSin angle ) angle hex
         newline = DrawnLine (PointData point angle hex) pdata hex
     in case penState of 
@@ -325,14 +312,13 @@ eval val@(NumCommand "back" (Variable name)) (TurtleState (PointData point angle
 eval val@(NumCommand "left" (Number angle)) (TurtleState (PointData point direction hex) lines penState vars) = 
     TurtleState (PointData point (direction + angle) hex) lines penState vars
 
-eval val@(NumCommand "left" (Variable name)) (TurtleState (PointData point direction hex) lines penState vars) = 
-    TurtleState (PointData point (direction + (getValue vars name)) hex) lines penState vars
 
 eval val@(NumCommand "right" (Number angle)) (TurtleState (PointData point direction hex) lines penState vars) = 
     TurtleState (PointData point (direction - angle) hex) lines penState vars
 
-eval val@(NumCommand "right" (Variable name)) (TurtleState (PointData point direction hex) lines penState vars) = 
-    TurtleState (PointData point (direction - (getValue vars name)) hex) lines penState vars
+
+eval val@(NumCommand dir binop) state = 
+    eval (NumCommand dir (Number (evalNum binop state))) state
 
     
 eval val@(StrCommand "color" (String hex)) (TurtleState (PointData point direction _) lines penState vars) = 
@@ -349,13 +335,21 @@ eval val@(RepCommand (Number n) exprs) state =
     let newState = evalAll exprs state
     in eval (RepCommand (Number (n-1)) exprs) newState
 
-eval val@(RepCommand (Variable name) exprs) (TurtleState pdata lines hex vars) = 
-    eval (RepCommand (Number (getValue vars name)) exprs) (TurtleState pdata lines hex vars)
+eval val@(RepCommand var exprs) state =
+    eval (RepCommand (Number $ evalNum var state) exprs) state
 
 eval val@(Comment) state = state
 
 eval val@(VariableAssignment name (Number value)) (TurtleState pdata lines penState vars) = 
     TurtleState pdata lines penState ((name, value):vars)
+
+eval val@(VariableAssignment name binop) (TurtleState pdata lines penState vars) = 
+    TurtleState pdata lines penState ((name, (evalNum binop (TurtleState pdata lines penState vars))):vars)
+
+evalNum :: Expr -> TurtleState -> Float
+evalNum (Number n) _ = n
+evalNum (Variable name) (TurtleState _ _ _ vars) = (getValue vars name)
+evalNum (BinOp bin1 bin2 (Operation op)) state = (toFunction op) (evalNum bin1 state) (evalNum bin2 state)
 
 evalAll :: [Expr] -> TurtleState -> TurtleState
 evalAll [] pointData = pointData
@@ -366,6 +360,12 @@ degCos a = cos (a*pi/180)
 
 degSin :: Float -> Float
 degSin a = sin (a*pi/180)
+
+toFunction :: Char -> (Float -> Float -> Float)
+toFunction '+' = (+)
+toFunction '-' = (-)
+toFunction '*' = (*)
+toFunction '/' = (/)
 
 -------------------- Comment -------------------------
 
