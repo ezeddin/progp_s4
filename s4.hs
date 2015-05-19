@@ -18,7 +18,7 @@ showCommand (Comment) = "Comment"
 showCommand (Variable s) = "Variabel" ++ show s
 showCommand (VariableAssignment s op) = "VariableAssignment" ++ (show s) ++ " " ++ (show op)
 showCommand (BinOp expr1 expr2 op) = "Bin " ++ "[" ++ (show expr1) ++ ", " ++  (show expr2) ++ ", " ++ (show op) ++  "]" 
-showCommand (Operation opr ) = "OP " ++ (show opr) 
+showCommand (Operation opr ) = "OP " ++ (show opr)
 
 -- Tokens
 data Expr =  
@@ -39,7 +39,7 @@ data Expr =
 main :: IO ()
 main = do
          args <- getContents
-         let lines = evalAll (readExpr $ args) (TurtleState (PointData (400,400) 0 "#0000FF") [] True [])
+         let lines =  evalAll (readExpr $ args) (TurtleState (PointData (0,0) 0 "#0000FF") [] True [])
          print $ lines
 
 readExpr :: String -> [Expr]
@@ -55,12 +55,12 @@ parseProgram = many parseExpr
 
 parseExpr :: Parser Expr
 parseExpr = (try parseNumCommand <|> parseColorCommand <|> 
-    try parsePenStateCommand <|> try parseRep <|> 
-    try parseRepSingle <|> parseAssignment <|> parseCommentToken)
+    try parsePenStateCommand <|> try parseRepSingle <|> 
+  parseRep <|> parseAssignment <|> parseCommentToken)
 
 spaces1 :: Parser ()
 spaces1 = do 
-            many (skipMany1 (space <|> newline) <|> parseComment)
+            many1 (skipMany1 (space <|> newline) <|> parseComment)
             return ()
 
 spaces0 :: Parser ()
@@ -81,7 +81,7 @@ parseNegNumber = do
                  return $ BinOp (Number 0) num (Operation '-') 
 
 parseNumber :: Parser Expr
-parseNumber =  try parseArithmetic
+parseNumber =  parseArithmetic
 
 
 parseHex :: Parser Expr
@@ -186,11 +186,13 @@ parseArithmetic = try parseAddition <|> try parseSubtraction <|> try parseTerm
 
 parseTerm :: Parser Expr
 parseTerm       = do
+                spaces0
                 op <- try parseDivision <|> try parseMultiplication <|> try parseFactor
                 return op
 
 parseFactor :: Parser Expr
 parseFactor = do 
+                spaces0
                 num <- parseGroup <|> parseInt <|> parseNegNumber <|> parseVariable
                 return $ BinOp num (Number 0) (Operation '+')
 
@@ -201,7 +203,6 @@ parseGroup = do
             ari <- parseArithmetic 
             spaces0 
             char ')'
-            spaces0
             return ari
 
 parseAddition :: Parser Expr
@@ -211,7 +212,6 @@ parseAddition = do
                 op <- char '+'
                 spaces0
                 expr <- parseArithmetic
-                spaces0
                 return $ BinOp term expr (Operation op)
 
 parseSubtraction :: Parser Expr
@@ -221,7 +221,6 @@ parseSubtraction = do
                 op <- char '-'
                 spaces0
                 expr <- parseArithmetic
-                spaces0
                 return $ BinOp term expr (Operation op)
 
 parseMultiplication :: Parser Expr
@@ -231,7 +230,6 @@ parseMultiplication = do
                 op <- char '*'
                 spaces0
                 expr <- parseTerm
-                spaces0
                 return $ BinOp term expr (Operation op)
 
 parseDivision :: Parser Expr
@@ -241,7 +239,6 @@ parseDivision = do
                 op <- char '/'
                 spaces0
                 expr <- parseTerm
-                spaces0
                 return $ BinOp term expr (Operation op)
 
 
@@ -255,7 +252,7 @@ showPoint (PointData point _ _) = (showFFloat (Just 4) (fst point) "")++ " " ++ 
 instance Show DrawnLine where show = showLine
 showLine :: DrawnLine -> String
 showLine (DrawnLine (PointData sPoint _ _) (PointData ePoint _ _) hexline) = 
-                    "<line x1=\"" ++ (showFFloat (Just 4) (fst sPoint) "") ++ "pt\" " ++ "y1=\"" ++ (showFFloat (Just 4) (snd sPoint) "") ++ 
+                    "<line stroke-width=\"0.05\" x1=\"" ++ (showFFloat (Just 4) (fst sPoint) "") ++ "pt\" " ++ "y1=\"" ++ (showFFloat (Just 4) (snd sPoint) "") ++ 
                     "pt\" x2=\"" ++ (showFFloat (Just 4) (fst ePoint) "") ++ "pt\" " ++ "y2=\"" ++ (showFFloat (Just 4) (snd ePoint) "") ++ "pt\" " ++ 
                     "style=\"stroke:" ++ hexline ++ "\" />"
 
@@ -269,9 +266,20 @@ toSVG :: TurtleState -> String
 toSVG (TurtleState _ lines _ _) = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>" ++
                                     "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">" ++ 
                                     "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">" ++
-                                    (showLineList (reverse lines)) ++ "</svg>"
+                                    (showLineList (addToAll (reverse lines) (findSmallestValues lines (0,0)))) ++ "</svg>"
 
+addToAll :: [DrawnLine] -> (Float, Float) -> [DrawnLine]
+addToAll [] _ = []
+addToAll ((DrawnLine (PointData sp sdir shex) (PointData ep edir ehex) hex) : rest) (minx, miny) = 
+    DrawnLine (PointData (fst sp - minx, snd sp - miny) sdir shex) (PointData (fst ep - minx, snd ep - miny) edir ehex) hex : addToAll rest (minx, miny)
 
+findSmallestValues :: [DrawnLine] -> (Float, Float) -> (Float, Float)
+findSmallestValues [] min = min
+findSmallestValues ((DrawnLine (PointData sp _ _) (PointData ep _ _) _) : rest) (minx, miny) = let
+        newx = min (min (fst sp) (fst ep)) minx
+        newy = min (min (snd sp) (snd ep)) miny
+    in
+        findSmallestValues rest (newx, newy)
 
 data PointData = PointData {
     point :: (Float, Float),
@@ -319,11 +327,11 @@ eval val@(NumCommand "back" (Number nmb)) (TurtleState (PointData point angle he
 
 
 eval val@(NumCommand "left" (Number angle)) (TurtleState (PointData point direction hex) lines penState vars) = 
-    TurtleState (PointData point (direction + angle) hex) lines penState vars
+    TurtleState (PointData point (direction - angle) hex) lines penState vars
 
 
 eval val@(NumCommand "right" (Number angle)) (TurtleState (PointData point direction hex) lines penState vars) = 
-    TurtleState (PointData point (direction - angle) hex) lines penState vars
+    TurtleState (PointData point (direction + angle) hex) lines penState vars
 
 
 eval val@(NumCommand dir binop) state = 
@@ -354,6 +362,8 @@ eval val@(VariableAssignment name (Number value)) (TurtleState pdata lines penSt
 
 eval val@(VariableAssignment name binop) (TurtleState pdata lines penState vars) = 
     TurtleState pdata lines penState ((name, (evalNum binop (TurtleState pdata lines penState vars))):vars)
+
+
 
 
 evalNum :: Expr -> TurtleState -> Float
