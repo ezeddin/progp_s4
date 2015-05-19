@@ -39,7 +39,7 @@ data Expr =
 main :: IO ()
 main = do
          args <- getContents
-         let lines = evalAll (readExpr $ args) (TurtleState (PointData (0,0) 0 "#0000FF") [] True [])
+         let lines = evalAll (readExpr $ args) (TurtleState (PointData (400,400) 0 "#0000FF") [] True [])
          print $ lines
 
 readExpr :: String -> [Expr]
@@ -254,15 +254,24 @@ showPoint (PointData point _ _) = (showFFloat (Just 4) (fst point) "")++ " " ++ 
 
 instance Show DrawnLine where show = showLine
 showLine :: DrawnLine -> String
-showLine (DrawnLine startPoint endPoint hexline) = hexline ++ " " ++ (show startPoint) ++ " " ++ (show endPoint) 
+showLine (DrawnLine (PointData sPoint _ _) (PointData ePoint _ _) hexline) = 
+                    "<line x1=\"" ++ (showFFloat (Just 4) (fst sPoint) "") ++ "pt\" " ++ "y1=\"" ++ (showFFloat (Just 4) (snd sPoint) "") ++ 
+                    "pt\" x2=\"" ++ (showFFloat (Just 4) (fst ePoint) "") ++ "pt\" " ++ "y2=\"" ++ (showFFloat (Just 4) (snd ePoint) "") ++ "pt\" " ++ 
+                    "style=\"stroke:" ++ hexline ++ "\" />"
 
-instance Show TurtleState where show = showState
-showState :: TurtleState -> String
-showState (TurtleState _ lines _ _) = showLineList (reverse lines)
 
 showLineList :: [DrawnLine] -> String
 showLineList [] = ""
 showLineList (h:t) = (show h) ++ "\n" ++ (showLineList t)
+
+instance Show TurtleState where show = toSVG
+toSVG :: TurtleState -> String
+toSVG (TurtleState _ lines _ _) = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>" ++
+                                    "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">" ++ 
+                                    "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">" ++
+                                    (showLineList (reverse lines)) ++ "</svg>"
+
+
 
 data PointData = PointData {
     point :: (Float, Float),
@@ -345,6 +354,7 @@ eval val@(VariableAssignment name (Number value)) (TurtleState pdata lines penSt
 
 eval val@(VariableAssignment name binop) (TurtleState pdata lines penState vars) = 
     TurtleState pdata lines penState ((name, (evalNum binop (TurtleState pdata lines penState vars))):vars)
+
 
 evalNum :: Expr -> TurtleState -> Float
 evalNum (Number n) _ = n

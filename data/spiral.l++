@@ -1,9 +1,4 @@
+color #DE3163.
 down.
-turn = 1.
-speed = 1.
-rep (turn+2*speed)*(10/turn-1) "
-  left turn.
-  forw speed.
-  speed=speed*11/10+10/turn.
-  turn=turn+3.
-"
+x = 0.
+rep 100 "rep 4 "forw 100-x. left 90." x=x+1."
