@@ -252,7 +252,7 @@ showPoint (PointData point _ _) = (showFFloat (Just 4) (fst point) "")++ " " ++ 
 instance Show DrawnLine where show = showLine
 showLine :: DrawnLine -> String
 showLine (DrawnLine (PointData sPoint _ _) (PointData ePoint _ _) hexline) = 
-                    "<line stroke-width=\"0.05\" x1=\"" ++ (showFFloat (Just 4) (fst sPoint) "") ++ "pt\" " ++ "y1=\"" ++ (showFFloat (Just 4) (snd sPoint) "") ++ 
+                    "<line stroke-width=\"0.01\" x1=\"" ++ (showFFloat (Just 4) (fst sPoint) "") ++ "pt\" " ++ "y1=\"" ++ (showFFloat (Just 4) (snd sPoint) "") ++ 
                     "pt\" x2=\"" ++ (showFFloat (Just 4) (fst ePoint) "") ++ "pt\" " ++ "y2=\"" ++ (showFFloat (Just 4) (snd ePoint) "") ++ "pt\" " ++ 
                     "style=\"stroke:" ++ hexline ++ "\" />"
 

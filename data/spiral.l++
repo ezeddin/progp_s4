@@ -1,10 +1,9 @@
-% Ta 8 steg framåt
-REP 2 REP 4 FORW 1.
-REP% Repetition på gång
-2% Två gånger
-"%Snart kommer kommandon
-DOWN% Kommentera mera
-.% Avsluta down-kommando
-FORW 1
-LEFT 1. % Oj, glömde punkt efter FORW-kommando
+down.
+turn = 1.
+speed = 1.
+rep (turn+2*speed)*(10/turn-1) "
+  left turn.
+  forw speed.
+  speed=speed*11/10+10/turn.
+  turn=turn+3.
 "
