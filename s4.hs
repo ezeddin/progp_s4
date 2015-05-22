@@ -56,7 +56,7 @@ parseProgram = many parseExpr
 parseExpr :: Parser Expr
 parseExpr = (try parseNumCommand <|> parseColorCommand <|> 
     try parsePenStateCommand <|> try parseRepSingle <|> 
-  parseRep <|> parseAssignment <|> parseCommentToken)
+    try parseRep <|> parseAssignment <|> parseCommentToken)
 
 spaces1 :: Parser ()
 spaces1 = do 
@@ -125,6 +125,7 @@ parsePenStateCommand = do
 
 parseComment :: Parser ()
 parseComment = do
+                
                 char '%'
                 manyTill anyChar newline
                 many space

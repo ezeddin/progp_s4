@@ -1,0 +1,1 @@
+forw 10. down. color #DE3161. rep 40 "dist = 25. rep 3 "rep 20 "right 18. forw dist." dist = dist-1." right 25."
