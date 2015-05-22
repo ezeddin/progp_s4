@@ -1,4 +1,3 @@
 % color #00FF00. rep 100 "rep 365 " right 1. forw 1. " left 1. forw 10." up. left 90. forw 50. down. color #FF0000. rep 100 "rep 365 " right 1. 
 
-forw 1100. % comm
-back 5.
+forw 1100. % comm 

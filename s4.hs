@@ -125,9 +125,8 @@ parsePenStateCommand = do
 
 parseComment :: Parser ()
 parseComment = do
-                
                 char '%'
-                manyTill anyChar newline
+                manyTill anyChar (void newline <|> eof)
                 many space
                 return ()
 
